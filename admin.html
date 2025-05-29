@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin - Bookings</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #0077cc;
+      color: white;
+    }
+    tbody tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+    .no-bookings {
+      text-align: center;
+      margin-top: 50px;
+      font-size: 1.2em;
+      color: #777;
+    }
+    .section-title {
+      margin-top: 40px;
+      font-size: 1.4em;
+    }
+    button.delete-btn {
+      background-color: #d9534f;
+      border: none;
+      padding: 8px 16px;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    button.delete-btn:disabled {
+      background-color: #f2a19e;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Booking Records (Admin)</h1>
+
+  <h2 class="section-title">Active Bookings</h2>
+  <button id="deleteActiveBtn" class="delete-btn" disabled>Delete Selected (Move to History)</button>
+  <table id="bookingTable">
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="selectAllActive"></th>
+        <th>Full Name</th>
+        <th>Email</th>
+        <th>Contact</th>
+        <th>Guests</th>
+        <th>Date</th>
+        <th>Package</th>
+        <th>Notes</th>
+        <th>Submitted At</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Active booking rows will be inserted here -->
+    </tbody>
+  </table>
+  <p class="no-bookings" id="noBookingsMsg" style="display:none;">No active bookings found.</p>
+
+  <h2 class="section-title">Booking History</h2>
+  <button id="deleteHistoryBtn" class="delete-btn" disabled>Delete Selected (Permanently)</button>
+  <table id="historyTable">
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="selectAllHistory"></th>
+        <th>Full Name</th>
+        <th>Email</th>
+        <th>Contact</th>
+        <th>Guests</th>
+        <th>Date</th>
+        <th>Package</th>
+        <th>Notes</th>
+        <th>Submitted At</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- History rows will be inserted here -->
+    </tbody>
+  </table>
+  <p class="no-history-msg" id="noHistoryMsg" style="display:none;">No booking history available.</p>
+
+<script>
+  let bookings = JSON.parse(localStorage.getItem('bookings')) || [];
+  let history = JSON.parse(localStorage.getItem('bookingHistory')) || [];
+
+  const bookingTableBody = document.querySelector('#bookingTable tbody');
+  const historyTableBody = document.querySelector('#historyTable tbody');
+  const noBookingsMsg = document.getElementById('noBookingsMsg');
+  const noHistoryMsg = document.getElementById('noHistoryMsg');
+
+  // Active booking controls
+  const selectAllActiveCheckbox = document.getElementById('selectAllActive');
+  const deleteActiveBtn = document.getElementById('deleteActiveBtn');
+
+  // History booking controls
+  const selectAllHistoryCheckbox = document.getElementById('selectAllHistory');
+  const deleteHistoryBtn = document.getElementById('deleteHistoryBtn');
+
+  // Render active bookings with checkbox
+  function renderBookings() {
+    bookingTableBody.innerHTML = '';
+    if (bookings.length === 0) {
+      document.getElementById('bookingTable').style.display = 'none';
+      noBookingsMsg.style.display = 'block';
+      deleteActiveBtn.disabled = true;
+      selectAllActiveCheckbox.checked = false;
+      selectAllActiveCheckbox.disabled = true;
+    } else {
+      document.getElementById('bookingTable').style.display = 'table';
+      noBookingsMsg.style.display = 'none';
+      selectAllActiveCheckbox.disabled = false;
+
+      bookings.forEach((booking, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="checkbox" data-index="${index}" class="active-checkbox" /></td>
+          <td>${booking.fullname}</td>
+          <td>${booking.email}</td>
+          <td>${booking.contact}</td>
+          <td>${booking.guests}</td>
+          <td>${booking.date}</td>
+          <td>${booking.package}</td>
+          <td>${booking.notes}</td>
+          <td>${new Date(booking.timestamp).toLocaleString()}</td>
+        `;
+        bookingTableBody.appendChild(tr);
+      });
+
+      updateActiveDeleteButtonState();
+
+      document.querySelectorAll('.active-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateActiveDeleteButtonState);
+      });
+    }
+  }
+
+  // Render booking history with checkbox
+  function renderHistory() {
+    historyTableBody.innerHTML = '';
+    if(history.length === 0) {
+      document.getElementById('historyTable').style.display = 'none';
+      noHistoryMsg.style.display = 'block';
+      deleteHistoryBtn.disabled = true;
+      selectAllHistoryCheckbox.checked = false;
+      selectAllHistoryCheckbox.disabled = true;
+    } else {
+      document.getElementById('historyTable').style.display = 'table';
+      noHistoryMsg.style.display = 'none';
+      selectAllHistoryCheckbox.disabled = false;
+
+      history.forEach((booking, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="checkbox" data-index="${index}" class="history-checkbox" /></td>
+          <td>${booking.fullname}</td>
+          <td>${booking.email}</td>
+          <td>${booking.contact}</td>
+          <td>${booking.guests}</td>
+          <td>${booking.date}</td>
+          <td>${booking.package}</td>
+          <td>${booking.notes}</td>
+          <td>${new Date(booking.timestamp).toLocaleString()}</td>
+        `;
+        historyTableBody.appendChild(tr);
+      });
+
+      updateHistoryDeleteButtonState();
+
+      document.querySelectorAll('.history-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateHistoryDeleteButtonState);
+      });
+    }
+  }
+
+  // Update active delete button & select all active checkbox states
+  function updateActiveDeleteButtonState() {
+    const checkboxes = document.querySelectorAll('.active-checkbox');
+    const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+    deleteActiveBtn.disabled = checkedBoxes.length === 0;
+
+    if(checkedBoxes.length === checkboxes.length && checkboxes.length > 0) {
+      selectAllActiveCheckbox.checked = true;
+    } else {
+      selectAllActiveCheckbox.checked = false;
+    }
+  }
+
+  // Update history delete button & select all history checkbox states
+  function updateHistoryDeleteButtonState() {
+    const checkboxes = document.querySelectorAll('.history-checkbox');
+    const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+    deleteHistoryBtn.disabled = checkedBoxes.length === 0;
+
+    if(checkedBoxes.length === checkboxes.length && checkboxes.length > 0) {
+      selectAllHistoryCheckbox.checked = true;
+    } else {
+      selectAllHistoryCheckbox.checked = false;
+    }
+  }
+
+  // Select all active checkbox behavior
+  selectAllActiveCheckbox.addEventListener('change', () => {
+    const checked = selectAllActiveCheckbox.checked;
+    document.querySelectorAll('.active-checkbox').forEach(cb => cb.checked = checked);
+    updateActiveDeleteButtonState();
+  });
+
+  // Select all history checkbox behavior
+  selectAllHistoryCheckbox.addEventListener('change', () => {
+    const checked = selectAllHistoryCheckbox.checked;
+    document.querySelectorAll('.history-checkbox').forEach(cb => cb.checked = checked);
+    updateHistoryDeleteButtonState();
+  });
+
+  // Delete selected active bookings (move to history)
+  deleteActiveBtn.addEventListener('click', () => {
+    const confirmed = confirm('Are you sure you want to delete the selected bookings? This action will move them to history.');
+    if (!confirmed) return;
+
+    const checkboxes = document.querySelectorAll('.active-checkbox');
+    const selectedIndexes = [];
+    checkboxes.forEach(cb => {
+      if(cb.checked) selectedIndexes.push(parseInt(cb.getAttribute('data-index')));
+    });
+    selectedIndexes.sort((a,b) => b - a);
+
+    selectedIndexes.forEach(idx => {
+      const removed = bookings.splice(idx, 1)[0];
+      history.push(removed);
+    });
+
+    localStorage.setItem('bookings', JSON.stringify(bookings));
+    localStorage.setItem('bookingHistory', JSON.stringify(history));
+
+    renderBookings();
+    renderHistory();
+  });
+
+  // Delete selected history bookings permanently
+  deleteHistoryBtn.addEventListener('click', () => {
+    const confirmed = confirm('Are you sure you want to permanently delete the selected history bookings? This action cannot be undone.');
+    if (!confirmed) return;
+
+    const checkboxes = document.querySelectorAll('.history-checkbox');
+    const selectedIndexes = [];
+    checkboxes.forEach(cb => {
+      if(cb.checked) selectedIndexes.push(parseInt(cb.getAttribute('data-index')));
+    });
+    selectedIndexes.sort((a,b) => b - a);
+
+    selectedIndexes.forEach(idx => {
+      history.splice(idx, 1);
+    });
+
+    localStorage.setItem('bookingHistory', JSON.stringify(history));
+
+    renderHistory();
+  });
+
+  // Initial render
+  renderBookings();
+  renderHistory();
+</script>
+</body>
+<nav class="bottom-nav">
+  <ul>
+    <li><a href="#contact">CONTACT</a></li>
+    <li><a href="#reviewSection">RATING</a></li>
+    <li><a href="#activities">ACTIVITIES</a></li>
+    <li><a href="booking.html">BOOK NOW</a></li>
+    <li><a href="login.html">ADMIN</a></li>
+  </ul>
+</nav>
+</html>
